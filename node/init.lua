@@ -1,43 +1,59 @@
 require 'underscore'
+local async = require 'async'
 local thnode = require 'thmap.node'
+--local protocol = require 'redis-status.protocol'
+local protocol = require '../protocol/'
 
 local standardconfig = {
+   groupname = "RQ",
    parseStatus = function(data)
-         local _,_,status = data:find("STATUS:(.*)")
+         local _,_,status = data:find("^STATUS:%s*(.*)")
          return status
    end
 }
 
-local new = function(redis, config)
+local new = function(rediswrite, redissub, config, cb)
    
-   local statusnode= {}
+   config = config or standardconfig
+
+   
+   local commands = {}
 
    -- TODO: take killdelay, etc from redis stored config?
    local node = thnode({killdelay = 1200})
 
 
-   statusnode.spawn = node.spawn
-   statusnode.restart = node.restart
-   statusnode.killall = node.killall
-   statusnode.ps = node.ps
-   statusnode.git = node.git
-   statusnode.update = node.update
-   statusnode.zombies = node.zombies
+   commands.spawn = node.spawn
+   commands.restart = node.restart
+   commands.killall = node.killall
+   commands.ps = node.ps
+   commands.git = node.git
+   commands.update = node.update
+   commands.zombies = node.zombies
 
+   -- if you want to add more commands, do provide a function addcommands in your config
+   if config.addcommands then
+      config.addcommands(commands)
+   end
 
-   config = config or standardconfig
+   local client = protocol.newnode(rediswrite, redissub, config.groupname, commands, cb)
+   
+   local processes = {}
       
    node.setlogpreprocess(function(name,data)
       local status = config.parseStatus(data)
       
-      processes[name].last_seen = async.hrtime()
-      processes[name].last_status = status
+      if status then
+         processes[name].last_seen = async.hrtime()
+         processes[name].last_status = status
 
-      -- TODO:jsonify and write the status to redis
-      print(name, status)
+         client.sendstatus(name, processes[name])
+      end
+
+      return true
+
    end)
 
-   local processes = {}
    node.onnewprocess(function(name)
       local time = async.hrtime()
       processes[name] = {
@@ -45,11 +61,19 @@ local new = function(redis, config)
          last_seen = time,
          last_status = "NEW",
       }
+
+      --TODO: send some new process info to server
    end)
 
-   function statusnode.dump()
+   local rnode = {client = client}
+
+   function rnode.dump()
       print(processes)
    end
 
-   return statusnode
+   rnode.thnode = node
+
+   return rnode
 end
+
+return new

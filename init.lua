@@ -1,8 +1,6 @@
-local new = function(redis, config)
-   
-   local statusserver = {}
+locat rstatus = {
+   node = require 'redis-status.node',
+   server = require 'redis-status.server',
+}
 
-
-
-   return statusserver
-end
+return rstatus
