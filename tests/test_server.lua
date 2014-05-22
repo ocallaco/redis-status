@@ -52,7 +52,12 @@ fiber(function()
 
    local server = rs(writecli, subcli, "RQ", status_callback)
 
-   server.issuecommand("all", "spawn_test")
+   print("TEST")
+   server.init()
+
+   print("TEST2")
+
+   server.issueCommand({"CONTROLCHANNEL:RQ:TEST"}, "spawn_test", function(res) print(res) end)
 
 end)
 

@@ -8,21 +8,27 @@ local standardconfig = {
    groupname = "RQ",
    parseStatus = function(data)
          local _,_,status = data:find("^STATUS:%s*(.*)")
-         return status
+         return status,false
    end
 }
 
-local new = function(rediswrite, redissub, config, cb)
-   
+local new = function(rediswrite, redissub, config)
+ 
+   -- config overrides standard config
    config = config or standardconfig
 
+   for k,v in pairs(standardconfig) do
+      config[k] = config[k] or v
+   end
    
+
    local commands = {}
 
    -- TODO: take killdelay, etc from redis stored config?
    local node = thnode({killdelay = 1200})
 
 
+   -- set our commands to match up with thnode
    commands.spawn = node.spawn
    commands.restart = node.restart
    commands.killall = node.killall
@@ -36,21 +42,31 @@ local new = function(rediswrite, redissub, config, cb)
       config.addcommands(commands)
    end
 
-   local client = protocol.newnode(rediswrite, redissub, config.groupname, commands, cb)
+   -- simple handler
+   local commandsHandler = function(commandtype, ...)
+      commands[commandtype](args)
+   end
+
+   --TODO: figure out how to get node names
+   local client = protocol.node(config.groupname, config.nodename or "TEST", rediswrite, redissub)
+
+   client.init()
    
-   local processes = {}
-      
+
+   -- override the thnode's logpreprocess to intercept messages of specified type
+   local processes = {}   
+
    node.setlogpreprocess(function(name,data)
-      local status = config.parseStatus(data)
+      local status,passthrough = config.parseStatus(data)
       
       if status then
          processes[name].last_seen = async.hrtime()
          processes[name].last_status = status
 
-         client.sendstatus(name, processes[name])
+         client.sendstatus(name, processes[name], function(res) print(res) end)
       end
 
-      return true
+      return passthrough or true
 
    end)
 
@@ -62,7 +78,20 @@ local new = function(rediswrite, redissub, config, cb)
          last_status = "NEW",
       }
 
-      --TODO: send some new process info to server
+      client.initworker(name, function(res) print(res) end)
+
+   end)
+
+   node.ondeadprocess(function(name)
+      local time = async.hrtime()
+      processes[name] = {
+         born = time,
+         last_seen = time,
+         last_status = "NEW",
+      }
+
+      client.deadworker(name, function(res) print(res) end)
+
    end)
 
    local rnode = {client = client}
