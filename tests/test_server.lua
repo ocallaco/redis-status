@@ -50,9 +50,9 @@ fiber(function()
    local subcli = wait(rc.connect, {redis_details})
 
 
-   local node = rs(writecli, subcli, "RQ", status_callback)
+   local server = rs(writecli, subcli, "RQ", status_callback)
 
-   node.issuecommand("all", "spawn_test")
+   server.issuecommand("all", "spawn_test")
 
 end)
 

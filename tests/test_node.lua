@@ -25,7 +25,7 @@ fiber(function()
 
    standardconfig.addcommands = function(commands)
       commands.spawn_test = function()
-         commands.spawn("th", {"./test_process.lua"})
+         commands.spawn("th", {"./test_process.lua"}, {name = "test_process"})
       end
       global_commands = commands
    end
