@@ -37,9 +37,9 @@ if not opt.print then
       curses.refresh()
    end
    
-   status_callback = function(status) putstatus(status) end
+   status_callback = function(nodename, workername, status) putstatus(status) end
 else
-   status_callback = function(status) print(status) end
+   status_callback = function(nodename, workername, status) print("STATUS", status) end
 end
 
 
@@ -50,14 +50,9 @@ fiber(function()
    local subcli = wait(rc.connect, {redis_details})
 
 
-   local server = rs(writecli, subcli, "RQ", status_callback)
+   local server = rs(writecli, subcli, "RQ", {onStatus = status_callback})
 
-   print("TEST")
-   server.init()
-
-   print("TEST2")
-
-   server.issueCommand({"CONTROLCHANNEL:RQ:TEST"}, "spawn_test", function(res) print(res) end)
+   server.issueCommand({"CONTROLCHANNEL:RQ:TEST"}, "spawn_test", function(res) print("sent") end)
 
 end)
 

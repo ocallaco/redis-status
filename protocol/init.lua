@@ -1,3 +1,4 @@
+local async = require 'async'
 local json = require 'cjson'
 
 local CLUSTERNODES = "CLUSTERNODES" -- (.. clustername), set nodes
@@ -37,7 +38,7 @@ end
 local TYPE_ACK = "ACK"
 
    -- CONTROL ONLY
-local TYPE_COMAND = "COMMAND"
+local TYPE_COMMAND = "COMMAND"
 
    -- INFO ONLY
 local TYPE_STATUS = "STATUS"
@@ -67,13 +68,8 @@ local function status_message(nodename, workername, status)
    return pack_message(TYPE_STATUS, {worker=workername, node=nodename, status=status})
 end
 
-local function command_message(commandName, ...)
-   local arg = {...}
-   if #arg > 1 then
-      return pack_message(TYPE_COMMAND, {name=commandName, args = arg, unpack = true})
-   else
-      return pack_message(TYPE_COMMAND, {name=commandName, args = arg[1], unpack = false})
-   end
+local function command_message(commandName, arg)
+   return pack_message(TYPE_COMMAND, {name=commandName, args = arg})
 end
 
 local function node_message(nodename, nodestate)
@@ -97,6 +93,7 @@ local evals = {}
 -- NODE EVALS:
 --
 -- remove node from clusternodes set.  clear all node vars.  publish "not ready" message
+-- TODO: also delete worker statuses?
 evals.nodeinitStart = function(clustername, nodename, cb)
    local cmdstr = [[
 
@@ -214,7 +211,7 @@ evals.issueCommand = function(message, channellist)
       local message = ARGV[1]
       
       for i=2,#ARGV do
-         redis.call('publish', ARGV[i], readymsg) 
+         redis.call('publish', ARGV[i], message) 
       end
    ]]
 
@@ -224,20 +221,89 @@ evals.issueCommand = function(message, channellist)
 end
 
 --------------------------------------------------------------------------------
+-- helper function for doing rewind
+--------------------------------------------------------------------------------
+
+local generateRewind = function(clustername, redis_rw, redis_sub)
+  
+   local rewind = {}
+
+   local nodenames = async.fiber.wait(redis_rw.smembers, {clusternodes(clustername)})
+
+   local node_workers = {}
+
+   for i,nodename in ipairs(nodenames) do
+      -- put the new node messages into rewind
+      table.insert(rewind, node_message(nodename, STATE_READY))
+
+      node_workers[nodename] = {}
+
+      local workers = async.fiber.wait(redis_rw.smembers, {nodeworkers(clustername, nodename)})
+      local worker_status = async.fiber.wait(redis_rw.hgetall, {workerstatus(clustername, nodename)})
+
+      local knownworkers = {}
+      for j,workername in ipairs(workers) do
+         table.insert(rewind, worker_message(nodename, workername, STATE_READY))
+         knownworkers[workername] = true
+      end
+      
+      for j = 1,#worker_status,2 do
+         -- dont put status when node doesnt exist
+         local workername = worker_status[j]
+         if knownworkers[workername] then
+            local ok,status = pcall(json.decode, worker_status[j+1])
+            if ok then 
+               table.insert(rewind, status_message(nodename, workername, status))
+            end
+         end
+      end
+
+   end
+
+   return rewind
+end
+
+
+--------------------------------------------------------------------------------
 
 local newNodeClient = function(clustername, nodename, redis_rw, redis_sub)
    local node = {}
 
    -- be very careful not to give two nodes the same name
-   function node.init()
+   function node.init(commandHandler)
       -- clear out node's stored info on redis and send not ready signal to server
 
       redis_rw.eval(evals.nodeinitStart(clustername, nodename))
       
       -- subscribe to channels
-      
-      redis_sub.subscribe(controlchannel(clustername, nodename), function(command)
-         print(command)
+    
+      local messageHandler = {}
+
+      messageHandler[TYPE_ACK] = function(data)
+      end
+
+      messageHandler[TYPE_COMMAND] = function(command)
+         xpcall(function()
+            commandHandler(command.name, unpack(command.args))
+         end, 
+         function(er) 
+            local err = debug.traceback(er)
+            print("Failed to execute command", message[3])
+            print(err)
+         end)
+      end
+
+
+      redis_sub.subscribe(controlchannel(clustername, nodename), function(message)
+         if message[1] == "message" then
+            local ok,msg = pcall(json.decode, message[3])
+               messageHandler[msg.msgtype](msg.data)
+            if not ok then
+               print("Failed to decode command message", message[3])
+               return
+            end
+
+                     end
       end)
 
       -- set new node info on redis and send ready signal to server
@@ -276,28 +342,94 @@ local newServerClient = function(clustername, redis_rw, redis_sub)
 
    local server = {}
 
-   function server.init()
+   -- must be in a managed async fiber
+   function server.init(callbackTable)
+
       -- subscribe to info channel, temporarily locally queue messages
+      local message_queue = {}
+
+      redis_sub.subscribe(infochannel(clustername), function(message)
+         if message[1] == "message" then
+            table.insert(message_queue, message[3])
+         end
+      end)
 
       -- rewind info stored on redis
 
-      -- unblock channel, bind callbacks, and drain queued messages
+      local rewind = generateRewind(clustername, redis_rw, redis_sub)
 
+      -- set up message handler
+      local messageHandler = {
+      }
+
+      messageHandler[TYPE_NODE] = function(data)
+         if data.state == STATE_READY then
+            callbackTable.onNodeReady(data.name)
+         elseif data.state == STATE_BLOCK then
+            callbackTable.onNodeBlock(data.name)
+         elseif data.state == STATE_ERROR then
+            callbackTable.onNodeError(data.name, data.error)
+         elseif data.state == STATE_DEAD then
+            callbackTable.onNodeDead(data.name)
+         end
+      end
+
+      messageHandler[TYPE_WORKER] = function(data)
+         if data.state == STATE_READY then
+            callbackTable.onWorkerReady(data.nodename, data.workername)
+         elseif data.state == STATE_BLOCK then
+            callbackTable.onWorkerBlock(data.nodename, data.workername)
+         elseif data.state == STATE_ERROR then
+            callbackTable.onWorkerError(data.nodename, data.workername, data.error)
+         elseif data.state == STATE_DEAD then
+            callbackTable.onWorkerDead(data.nodename, data.workername)
+         end
+      end
+
+      messageHandler[TYPE_STATUS] = function(data)
+         callbackTable.onStatus(data.node, data.worker, data.status)
+      end
+
+
+      -- drain queued messages
+      local parseAndRun = function(msg)
+         local ok, msgtable = pcall(json.decode, msg)
+         if ok then
+            messageHandler[msgtable.msgtype](msgtable.data)
+         else
+            print("Failed to parse message", msg)
+         end
+      end
+
+      for i,msg in ipairs(rewind) do
+         parseAndRun(msg)
+      end
+
+      for i,msg in ipairs(message_queue) do
+         parseAndRun(msg)
+      end
+
+
+      -- unblock channel
       redis_sub.subscribe(infochannel(clustername), function(message)
-         print(message)
+         if message[1] == "message" then
+            parseAndRun(message[3])
+         end
       end)
    end
 
-   function server.issueCommand(channellist, commandName, ...)
+   -- args must be the args passed to the command packed into a table
+   function server.issueCommand(channellist, commandName, args, cb)
 
-      local cmdargs = {...}
-      local cb
-      if type(cmdargs[#cmdargs]) == "function" then
-         cb = cmdargs[#cmdargs]
-         cmdargs[#cmdargs] = nil
+      if type(args) == "function" then
+         cb = args
+         args = nil
       end
+
+      args = args or {}
+
       -- build command message.  send to specified channels
-      local message,cb = command_message(commandName, unpack(cmdargs)) 
+      local message,cb = command_message(commandName, args) 
 
       redis_rw.eval(evals.issueCommand(message, channellist, cb))
    end

@@ -6,16 +6,20 @@ local protocol = require '../protocol/'
 
 local standardconfig = {
    groupname = "RQ",
+   nodename = "RQNODE",
    parseStatus = function(data)
          local _,_,status = data:find("^STATUS:%s*(.*)")
          return status,false
    end
 }
 
+
 local new = function(rediswrite, redissub, config)
- 
+
+
    -- config overrides standard config
    config = config or standardconfig
+   assert(config.nodename, "must give node a name")
 
    for k,v in pairs(standardconfig) do
       config[k] = config[k] or v
@@ -43,14 +47,14 @@ local new = function(rediswrite, redissub, config)
    end
 
    -- simple handler
-   local commandsHandler = function(commandtype, ...)
-      commands[commandtype](args)
+   local commandHandler = function(commandtype, ...)
+      commands[commandtype](...)
    end
 
    --TODO: figure out how to get node names
-   local client = protocol.node(config.groupname, config.nodename or "TEST", rediswrite, redissub)
+   local client = protocol.node(config.groupname, config.nodename, rediswrite, redissub)
 
-   client.init()
+   client.init(commandHandler)
    
 
    -- override the thnode's logpreprocess to intercept messages of specified type
@@ -78,7 +82,7 @@ local new = function(rediswrite, redissub, config)
          last_status = "NEW",
       }
 
-      client.initworker(name, function(res) print(res) end)
+      client.initworker(name, function(res) print("NEWPROC", name, res) end)
 
    end)
 
