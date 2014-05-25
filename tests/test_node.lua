@@ -9,10 +9,6 @@ redis_details = {host='localhost', port=6379}
 local standardconfig = {
    groupname = "RQ",
    nodename = "TEST",
-   parseStatus = function(data)
-         local _,_,status = data:find("^STATUS:%s*(.*)")
-         return status
-   end
 }
 
 

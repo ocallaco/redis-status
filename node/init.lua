@@ -3,14 +3,12 @@ local async = require 'async'
 local thnode = require 'thmap.node'
 --local protocol = require 'redis-status.protocol'
 local protocol = require '../protocol/'
+local api = require '../api'
 
 local standardconfig = {
    groupname = "RQ",
    nodename = "RQNODE",
-   parseStatus = function(data)
-         local _,_,status = data:find("^STATUS:%s*(.*)")
-         return status,false
-   end
+   api = api,
 }
 
 
@@ -61,7 +59,7 @@ local new = function(rediswrite, redissub, config)
    local processes = {}   
 
    node.setlogpreprocess(function(name,data)
-      local status,passthrough = config.parseStatus(data)
+      local status,passthrough = config.api.parseStatus(data)
       
       if status then
          processes[name].last_seen = async.hrtime()

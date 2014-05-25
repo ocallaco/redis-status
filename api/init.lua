@@ -7,5 +7,10 @@ function api.writeStatus(statusMessage)
    io.flush()
 end
 
+function api.parseStatus(statusString)
+   local _,_,status = statusString:find("^STATUS:%s*(.*)")
+   return status,false
+end
+
 
 return api

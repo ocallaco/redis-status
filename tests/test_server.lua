@@ -43,6 +43,28 @@ else
 end
 
 
+local nodes = {}
+
+local updateDisplay = function(nodename, workername)
+   print(nodes)
+--   status_callback(nodename,workername,nodes[nodename].workers[workername].status)
+end
+
+local onNewNode = function(name)
+   nodes[name] = {workers = {}, last_seen = os.time()}
+end
+
+local onNewWorker = function(nodename, workername)
+   nodes[nodename].workers[workername] = {last_seen = os.time()}
+end
+
+local onStatus = function(nodename, workername, status)
+   print(nodes)
+   nodes[nodename].workers[workername].status = status
+   nodes[nodename].workers[workername].last_seen = os.time()
+   nodes[nodename].last_seen = os.time()
+   updateDisplay(nodename, workername)
+end
 
 fiber(function()
 
@@ -50,7 +72,7 @@ fiber(function()
    local subcli = wait(rc.connect, {redis_details})
 
 
-   local server = rs(writecli, subcli, "RQ", {onStatus = status_callback})
+   local server = rs(writecli, subcli, "RQ", {onStatus = onStatus, onWorkerReady = onNewWorker, onNodeReady = onNewNode})
 
    server.issueCommand({"CONTROLCHANNEL:RQ:TEST"}, "spawn_test", function(res) print("sent") end)
 
