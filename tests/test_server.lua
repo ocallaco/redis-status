@@ -44,26 +44,51 @@ end
 
 
 local nodes = {}
+local node_names = {}
 
-local updateDisplay = function(nodename, workername)
-   print(nodes)
---   status_callback(nodename,workername,nodes[nodename].workers[workername].status)
+local node_area = {}
+
+local updateNode = function(nodename, workername)
+   local box = node_area[nodename]
+   local nodeEntry = nodes[nodename]
+   if opt.print then
+      print(box)
+      print(nodeEntry)
+      return 
+   end
+   curses.mvprintw(box.startx, box.starty, nodename)
+   curses.mvprintw(box.startx + 1, box.starty, "Number of workers: " .. #nodeEntry.worker_names)
+   curses.mvprintw(box.startx + 2, box.starty, "Last Seen: " .. nodeEntry.last_seen)
+
+   for i,workername in ipairs(nodeEntry.worker_names) do
+      curses.mvprintw(box.startx + 2 + i, box.starty, "Worker: " .. workername .. " " .. tostring(pretty.write(nodeEntry.workers[workername].status or "")))   
+   end
+
+   curses.refresh()
+
 end
 
 local onNewNode = function(name)
-   nodes[name] = {workers = {}, last_seen = os.time()}
+   table.insert(node_names,name)
+   nodes[name] = {workers = {}, last_seen = os.time(), worker_names = {}}
+   
+   local numnodes = #node_names
+   local startx = (numnodes * 10) % 60
+   local starty = math.floor(numnodes / 40) * 25
+   node_area[name] = {startx = startx, starty = starty}
 end
 
 local onNewWorker = function(nodename, workername)
    nodes[nodename].workers[workername] = {last_seen = os.time()}
+   table.insert(nodes[nodename].worker_names, workername)
 end
 
 local onStatus = function(nodename, workername, status)
-   print(nodes)
+   --print(nodes)
    nodes[nodename].workers[workername].status = status
    nodes[nodename].workers[workername].last_seen = os.time()
    nodes[nodename].last_seen = os.time()
-   updateDisplay(nodename, workername)
+   updateNode(nodename, workername)
 end
 
 fiber(function()
