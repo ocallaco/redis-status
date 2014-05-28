@@ -6,9 +6,13 @@ local fiber = require 'async.fiber'
 
 redis_details = {host='localhost', port=6379}
 
+local opt = lapp([[
+   -n,--name (default TEST)
+]])
+
 local standardconfig = {
    groupname = "RQ",
-   nodename = "TEST",
+   nodename = opt.name,
 }
 
 

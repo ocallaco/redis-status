@@ -61,12 +61,12 @@ local updateNode = function(nodename, workername)
    local win = node_area[nodename]
    local nodeEntry = nodes[nodename]
 
-   curses.mvwprintw(win, 1, 1, "%s", nodename)
-   curses.mvwprintw(win, 2, 1, "Number of workers: %d", #nodeEntry.worker_names)
-   curses.mvwprintw(win, 3, 1, "Last Seen: %d", nodeEntry.last_seen)
+   curses.mvwprintw(win, 1, 1, nodename)
+   curses.mvwprintw(win, 2, 1, "Number of workers: " .. #nodeEntry.worker_names)
+   curses.mvwprintw(win, 3, 1, "Last Seen: " .. nodeEntry.last_seen)
 
    for i,workername in ipairs(nodeEntry.worker_names) do
-      curses.mvwprintw(win, 3 + i, 1, "Worker: %s", workername)   
+      curses.mvwprintw(win, 3 + i, 1, "Worker: " .. workername)   
    end
 
    curses.box(win, 0 , 0)	
@@ -81,9 +81,9 @@ local onNewNode = function(name)
    nodes[name] = {workers = {}, last_seen = os.time(), worker_names = {}}
    
    local numnodes = #node_names - 1
-   local startx = (numnodes * 10) % 60
-   local starty = math.floor(numnodes / 40) * 25
-   node_area[name] = create_newwin(25, 60, startx, starty)
+   local startx = math.floor(numnodes / 6) * 40
+   local starty = math.floor(numnodes * 10) % 60 
+   node_area[name] = create_newwin(10, 40, starty, startx)
 end
 
 local onNewWorker = function(nodename, workername)
@@ -107,7 +107,8 @@ fiber(function()
 
    local server = rs(writecli, subcli, "RQ", {onStatus = onStatus, onWorkerReady = onNewWorker, onNodeReady = onNewNode})
 
-   server.issueCommand({"CONTROLCHANNEL:RQ:TEST"}, "spawn_test", function(res) print("sent") end)
+   server.issueCommand({"CONTROLCHANNEL:RQ:t1"}, "spawn_test", function(res) print("sent") end)
+   server.issueCommand({"CONTROLCHANNEL:RQ:t2"}, "spawn_test", function(res) print("sent") end)
 
 end)
 
