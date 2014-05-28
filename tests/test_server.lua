@@ -8,6 +8,10 @@ local curses = require 'ncurses'
 
 redis_details = {host='localhost', port=6379}
 
+local WIDTH = 40
+local HEIGHT = 10
+local ROWS = 6
+
 local opt = lapp([[
 thnode: a Torch compute node
    -p,--print dont use ncurses
@@ -81,9 +85,9 @@ local onNewNode = function(name)
    nodes[name] = {workers = {}, last_seen = os.time(), worker_names = {}}
    
    local numnodes = #node_names - 1
-   local startx = math.floor(numnodes / 6) * 40
-   local starty = math.floor(numnodes * 10) % 60 
-   node_area[name] = create_newwin(10, 40, starty, startx)
+   local startx = math.floor(numnodes / ROWS) * WIDTH
+   local starty = math.floor(numnodes * HEIGHT) % (ROWS * HEIGHT)
+   node_area[name] = create_newwin(HEIGHT, WIDTH, starty, startx)
 end
 
 local onNewWorker = function(nodename, workername)

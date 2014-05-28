@@ -42,3 +42,4 @@ async.repl()
 async.go()
 
 --global_commands.spawn_test()
+--global_commands.killall()
