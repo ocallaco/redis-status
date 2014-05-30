@@ -1,8 +1,8 @@
 require 'underscore'
 local async = require 'async'
 local thnode = require 'thmap.node'
---local protocol = require 'redis-status.protocol'
-local protocol = require '../protocol/'
+local protocol = require 'redis-status.protocol'
+--local protocol = require '../protocol/'
 local api = require '../api'
 
 local standardconfig = {
@@ -31,13 +31,9 @@ local new = function(rediswrite, redissub, config)
 
 
    -- set our commands to match up with thnode
-   commands.spawn = node.spawn
-   commands.restart = node.restart
-   commands.killall = node.killall
-   commands.ps = node.ps
-   commands.git = node.git
-   commands.update = node.update
-   commands.zombies = node.zombies
+   for i,comname in ipairs(protocol.standard_commands) do
+      commands[comname] = node[comname]
+   end
 
    -- if you want to add more commands, do provide a function addcommands in your config
    if config.addcommands then
@@ -46,6 +42,7 @@ local new = function(rediswrite, redissub, config)
 
    -- simple handler
    local commandHandler = function(commandtype, ...)
+      print("COMMAND RECEIVED", commandtype)
       commands[commandtype](...)
    end
 
@@ -80,6 +77,8 @@ local new = function(rediswrite, redissub, config)
          last_status = "NEW",
       }
 
+      print("NEW WORKER", name)
+
       client.initworker(name, function(res) print("NEWPROC", name, res) end)
 
    end)
@@ -91,6 +90,8 @@ local new = function(rediswrite, redissub, config)
          last_seen = time,
          last_status = "NEW",
       }
+
+      print("WORKER DEAD", name)
 
       client.deadworker(name, function(res) print(res) end)
 

@@ -1,7 +1,7 @@
 local _ = require 'underscore'
 
---local protocol = require 'redis-status.protocol'
-local protocol = require '../protocol/'
+local protocol = require 'redis-status.protocol'
+--local protocol = require '../protocol/'
 
 --callbackTable: onNodeReady, onNodeBlock, onNodeError, onNodeDead, 
 --               onWorkerReady, onWorkerBlock, onWorkerError, onWorkerDead, 

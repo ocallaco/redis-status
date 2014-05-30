@@ -62,8 +62,14 @@ local node_names = {}
 local node_area = {}
 
 local updateNode = function(nodename, workername)
-   local win = node_area[nodename]
    local nodeEntry = nodes[nodename]
+
+   if opt.print then
+      print(nodeEntry)
+      return
+   end
+
+   local win = node_area[nodename]
 
    curses.mvwprintw(win, 1, 1, nodename)
    curses.mvwprintw(win, 2, 1, "Number of workers: " .. #nodeEntry.worker_names)
@@ -113,6 +119,11 @@ fiber(function()
 
    server.issueCommand({"CONTROLCHANNEL:RQ:t1"}, "spawn_test", function(res) print("sent") end)
    server.issueCommand({"CONTROLCHANNEL:RQ:t2"}, "spawn_test", function(res) print("sent") end)
+
+   async.setTimeout(10000, function()
+      server.issueCommand({"CONTROLCHANNEL:RQ:t1"}, "restart", function(res) print("sent") end)
+      server.issueCommand({"CONTROLCHANNEL:RQ:t2"}, "restart", function(res) print("sent") end)
+   end)
 
 end)
 

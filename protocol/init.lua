@@ -8,6 +8,17 @@ local WORKERSTATUS = "WORKERSTATUS:" -- (.. clustername .. ":" .. nodename),  ha
 local INFOCHANNEL = "INFOCHANNEL:" -- (.. clustername), channel for updates from node to server
 local CONTROLCHANNEL = "CONTROLCHANNEL:" -- (.. clustername .. ":" .. nodename) channel for commands from server to node
 
+-- standard commands available (might want a better way to keep this)
+local standard_commands = {
+   'spawn',
+   'restart',
+   'killall',
+   'ps',
+   'git',
+   'update',
+   'zombies',
+}
+
 -- functions for building KEYS
 
 local function clusternodes(clustername)
@@ -51,8 +62,6 @@ local STATE_READY = "READY"
 local STATE_ERROR = "ERROR"
 local STATE_BLOCK = "BLOCK"
 local STATE_DEAD = "DEAD"
-
-
 
 
 --------------------------------------------------------------------------------
@@ -440,4 +449,5 @@ end
 return {
    node = newNodeClient,
    server = newServerClient,
+   standard_commands = standard_commands,
 }

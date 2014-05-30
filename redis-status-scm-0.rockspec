@@ -30,5 +30,6 @@ build = {
       ['redis-status.server'] = './server/init.lua',
       ['redis-status.node'] = './node/init.lua',
       ['redis-status.api'] = './api/init.lua',
+      ['redis-status.protocol'] = './protocol/init.lua',
    }
 }
