@@ -13,6 +13,8 @@ local opt = lapp([[
 local standardconfig = {
    groupname = "RQ",
    nodename = opt.name,
+   replport = 10001,
+   replportnext = true,
 }
 
 

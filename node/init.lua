@@ -9,8 +9,24 @@ local standardconfig = {
    groupname = "RQ",
    nodename = "RQNODE",
    api = api,
+   replport = 10001,
+   replportnext = true,
 }
 
+
+local startrepl = function(port)
+   while true do
+      local ok = pcall(function()
+         async.repl.listen({host='0.0.0.0', port=port}, function(client)
+            local s = client.sockname
+            hostname = s.address .. ':' .. s.port
+         end)
+      end)
+      if ok then break end
+      port = port + 1
+   end
+   print('thnode> waiting for jobs @ localhost:' .. port)
+end
 
 local new = function(rediswrite, redissub, config)
 
@@ -39,6 +55,7 @@ local new = function(rediswrite, redissub, config)
    if config.addcommands then
       config.addcommands(commands)
    end
+
 
    -- simple handler
    local commandHandler = function(commandtype, ...)
@@ -104,6 +121,30 @@ local new = function(rediswrite, redissub, config)
    end
 
    rnode.thnode = node
+
+   if config.replport then
+      local port = config.replport
+      while true do
+         local ok = pcall(function()
+            async.repl.listen({host='0.0.0.0', port=port}, function(client)
+               local s = client.sockname
+               hostname = s.address .. ':' .. s.port
+            end)
+         end)
+         -- TODO: should probably notify server somehow that repl isn't available...
+         if ok then
+            print("REPL listening on port " .. port) 
+            break
+         else
+            if config.replportnext then
+               port = port + 1
+            else 
+               break
+            end
+         end
+      end
+   end
+
 
    return rnode
 end

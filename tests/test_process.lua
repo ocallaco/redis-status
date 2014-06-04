@@ -1,7 +1,14 @@
 local statusapi = require '../api'
 local async = require 'async'
 
-async.setInterval(4000, function()
+local opt = lapp([[
+thnode: a Torch compute node
+   -t, --time (default 4) interval
+]])
+
+
+
+async.setInterval(opt.time * 1000, function()
    statusapi.writeStatus({time=os.time(), randvalue = torch.random(10)})
 end)
 
