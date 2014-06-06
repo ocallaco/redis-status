@@ -18,9 +18,6 @@ local standardconfig = {
 }
 
 
-
-global_commands = nil
-
 fiber(function()
 
    local writecli = wait(rc.connect, {redis_details})
@@ -29,11 +26,10 @@ fiber(function()
    local proccount = 1
 
    standardconfig.addcommands = function(commands)
-      commands.spawn_test = function()
-         commands.spawn("th", {"./test_process.lua"}, {name = "test_process" .. proccount})
+      commands.spawn_test = function(time)
+         commands.spawn("th", {"./test_process.lua", '-t', time}, {name = "test_process" .. proccount})
          proccount = proccount + 1
       end
-      global_commands = commands
    end
 
    node = rn(writecli, subcli, standardconfig, function() print("READY") end)

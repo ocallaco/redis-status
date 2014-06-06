@@ -5,6 +5,7 @@ local protocol = require 'redis-status.protocol'
 --local protocol = require '../protocol/'
 local api = require '../api'
 
+
 local standardconfig = {
    groupname = "RQ",
    nodename = "RQNODE",
@@ -57,6 +58,11 @@ local new = function(rediswrite, redissub, config)
    end
 
 
+   -- add to global
+   for k,command in pairs(commands) do
+      _G[k] = command
+   end
+
    -- simple handler
    local commandHandler = function(commandtype, ...)
       print("COMMAND RECEIVED", commandtype)
@@ -79,7 +85,7 @@ local new = function(rediswrite, redissub, config)
          processes[name].last_seen = async.hrtime()
          processes[name].last_status = status
 
-         client.sendstatus(name, processes[name], function(res) print(res) end)
+         client.sendstatus(name, processes[name], function(res) end)
       end
 
       return passthrough or true
@@ -96,7 +102,7 @@ local new = function(rediswrite, redissub, config)
 
       print("NEW WORKER", name)
 
-      client.initworker(name, function(res) print("NEWPROC", name, res) end)
+      client.initworker(name, function(res) end)
 
    end)
 
@@ -110,7 +116,7 @@ local new = function(rediswrite, redissub, config)
 
       print("WORKER DEAD", name)
 
-      client.deadworker(name, function(res) print(res) end)
+      client.deadworker(name, function(res) end)
 
    end)
 
