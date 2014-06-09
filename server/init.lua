@@ -87,6 +87,8 @@ local function buildServerEnv(callbackTable)
    cbt.onWorkerError  = function(nodename, workername, errormsg)   
       addError("Error from worker", nodename, workername, errormsg)
 
+      error("DEAD WORKER " .. workername)
+
       if callbackTable.onWorkerError then
          callbackTable.onWorkerError(nodename, workername, errormsg)
       end 
@@ -100,8 +102,8 @@ local function buildServerEnv(callbackTable)
 
       cbt.nodeWorkers[nodename][workername] = nil
 
-      if callbackTable.onWorkerBlock then
-         callbackTable.onWorkerBlock(nodename, workername)
+      if callbackTable.onWorkerDead then
+         callbackTable.onWorkerDead(nodename, workername)
       end 
    end
 

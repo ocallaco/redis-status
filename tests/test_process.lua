@@ -9,7 +9,7 @@ thnode: a Torch compute node
 
 
 async.setInterval(opt.time * 1000, function()
-   statusapi.writeStatus({time=os.time(), randvalue = torch.random(10)})
+   statusapi.writeStatus({time=os.time(), state = torch.random(10)})
 end)
 
 async.go()
