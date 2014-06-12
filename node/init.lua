@@ -12,6 +12,7 @@ local standardconfig = {
    api = api,
    replport = 10001,
    replportnext = true,
+   killdelay = 1200,
 }
 
 
@@ -44,7 +45,7 @@ local new = function(rediswrite, redissub, config)
    local commands = {}
 
    -- TODO: take killdelay, etc from redis stored config?
-   local node = thnode({killdelay = 1200})
+   local node = thnode({killdelay = config.killdelay})
 
 
    -- set our commands to match up with thnode
